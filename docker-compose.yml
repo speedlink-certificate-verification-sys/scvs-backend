@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  backend:
+    build: .
+    container_name: scvc-backend
+    restart: always
+    env_file: .env
+    ports:
+      - "5000:5000"
+    depends_on:
+      - external_db
+    networks:
+      - scvc_net
+
+  # This "external_db" is a reference to your existing DB container
+  external_db:
+    image: postgres:16    # This won't spin a new DB
+    container_name: erp_postgres
+    networks:
+      - scvc_net
+    external: true        # IMPORTANT: tells Docker NOT to recreate it
+
+networks:
+  scvc_net:
+    external: true
