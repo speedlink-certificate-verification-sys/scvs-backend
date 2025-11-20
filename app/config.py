@@ -1,9 +1,12 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'supersecretkey')
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'DATABASE_URL',
-        # 'postgresql+psycopg2://username:password@localhost:5432/scvs_db'
-    )
+
+    # Accept either DATABASE_URL or SQLALCHEMY_DATABASE_URI
+    SQLALCHEMY_DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI") or os.environ.get("DATABASE_URL")
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
