@@ -3,6 +3,8 @@ from .config import Config
 from .extensions import db, migrate, jwt
 from .routes import register_routes
 from flasgger import Swagger
+from flask_cors import CORS
+
 
 def create_app():
     app = Flask(__name__)
@@ -11,6 +13,8 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+
+    CORS(app)
 
     # Flasgger
     # Swagger(app)
