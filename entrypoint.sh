@@ -13,12 +13,19 @@ echo "Postgres is up!"
 apt-get update && apt-get install -y poppler-utils
 
 # Set Flask app
-export FLASK_APP=app:create_app
+export FLASK_APP=__init__:create_app
 export FLASK_ENV=development
 # export FLASK_DEBUG=1
 
-# Run migrations
-flask db upgrade
 
-# Start flask
-flask run --host=0.0.0.0 --port=5000
+# Run migrations
+python -m flask db upgrade
+
+# Start Flask server explicitly
+python -m flask run --host=0.0.0.0 --port=5000
+
+# # Run migrations
+# flask db upgrade
+
+# # Start flask
+# flask run --host=0.0.0.0 --port=5000
