@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from ..controllers.certificate_controller import create_certificate
+from ..controllers.certificate_controller import create_certificate, list_certificates, update_certificate, delete_certificate, import_certificates_csv
 from flasgger import swag_from
 
 
@@ -32,6 +32,89 @@ certificate_bp = Blueprint('certificate_bp', __name__, url_prefix='/certificate'
     }
 })
 def create_cert():
-    data = request.json
-    result = create_certificate(data)
-    return jsonify(result)
+    return create_certificate()
+
+
+
+@certificate_bp.get("/certificates")
+@swag_from({
+    "tags": ["Certificates"],
+    "summary": "List certificates",
+    "description": "Returns a paginated list of certificates.",
+    "parameters": [
+        {"in": "query", "name": "page", "type": "integer", "default": 1},
+        {"in": "query", "name": "limit", "type": "integer", "default": 10}
+    ],
+    "responses": {
+        "200": {"description": "List of certificates returned successfully"}
+    }
+})
+def list_cert():
+    return list_certificates()
+
+@certificate_bp.put("/certificates/<int:cert_id>")
+@swag_from({
+    "tags": ["Certificates"],
+    "summary": "Update a certificate",
+    "description": "Updates certificate details by certificate ID.",
+    "consumes": ["application/json"],
+    "parameters": [
+        {"in": "path", "name": "cert_id", "type": "integer", "required": True},
+        {
+            "in": "body",
+            "name": "body",
+            "required": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "first_name": {"type": "string"},
+                    "last_name": {"type": "string"},
+                    "course_name": {"type": "string"},
+                    "course_summary": {"type": "string"},
+                    "year_of_study": {"type": "string"}
+                }
+            }
+        }
+    ],
+    "responses": {
+        "200": {"description": "Certificate updated successfully"},
+        "404": {"description": "Certificate not found"}
+    }
+})
+def update_cert(cert_id):
+    return update_certificate(cert_id)
+
+
+@certificate_bp.delete("/certificates/<int:cert_id>")
+@swag_from({
+    "tags": ["Certificates"],
+    "summary": "Delete a certificate",
+    "description": "Deletes a certificate by ID.",
+    "parameters": [
+        {"in": "path", "name": "cert_id", "type": "integer", "required": True}
+    ],
+    "responses": {
+        "200": {"description": "Certificate deleted successfully"},
+        "404": {"description": "Certificate not found"}
+    }
+})
+def delete_cert(cert_id):
+    return delete_certificate(cert_id)
+
+
+@certificate_bp.post("/certificates/import")
+@swag_from({
+    "tags": ["Certificates"],
+    "summary": "Import certificates via CSV",
+    "description": "Uploads a CSV file containing multiple certificate records and inserts them into the database.",
+    "consumes": ["multipart/form-data"],
+    "parameters": [
+        {"in": "formData", "name": "file", "type": "file", "required": True}
+    ],
+    "responses": {
+        "200": {"description": "CSV processed successfully, returns imported count and errors"},
+        "400": {"description": "File not provided or invalid"}
+    }
+})
+def import_csv():
+    return import_certificates_csv()
