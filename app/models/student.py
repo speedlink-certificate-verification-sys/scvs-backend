@@ -13,7 +13,7 @@ class Student(db.Model):
     year_of_study = db.Column(db.String(20), nullable=True)
     program_start_date = db.Column(db.Date, nullable=True)
     program_end_date = db.Column(db.Date, nullable=True)
-    photo_url = db.Column(db.String(500), nullable=True)
+    photo_url = db.Column(db.Text, nullable=True)
 
     # Relationship with Certificate
     certificates = db.relationship(
