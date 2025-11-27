@@ -7,6 +7,8 @@ from ..utils.certificate_number import generate_certificate_number
 from ..utils.qr_generator import generate_certificate_qr
 import csv
 from io import StringIO
+import pandas as pd
+from io import BytesIO, StringIO
 
 
 # # ===================================
@@ -178,98 +180,152 @@ def delete_certificate(cert_id):
 
     return jsonify({"message": "Certificate deleted successfully"})
 
-
 def import_certificates_csv():
     file = request.files.get("file")
 
     if not file:
-        return jsonify({"error": "CSV file is required"}), 400
+        return jsonify({"error": "File is required"}), 400
 
-    stream = StringIO(file.stream.read().decode("utf-8"))
-    csv_reader = csv.DictReader(stream)
-
+    filename = file.filename.lower()
     created_count = 0
     errors = []
 
-    for row in csv_reader:
-        try:
-            cert_num = generate_certificate_number(row["course_name"])
-            qr_path = generate_certificate_qr(
-                f"{row['first_name']} {row['last_name']}",
-                row["course_name"],
-                cert_num,
-                row["issuance_date"]
-            )
+    try:
+        # Handle CSV files
+        if filename.endswith('.csv'):
+            # Try different encodings for CSV files
+            file_content = file.read()
+            
+            # Try common encodings
+            encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']
+            decoded_content = None
+            
+            for encoding in encodings:
+                try:
+                    decoded_content = file_content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if decoded_content is None:
+                return jsonify({"error": "Unable to decode CSV file. Please ensure it's a valid CSV with standard encoding."}), 400
+            
+            stream = StringIO(decoded_content)
+            csv_reader = csv.DictReader(stream)
+            rows = list(csv_reader)
 
-            cert = Certificate(
-                student_first_name=row["first_name"],
-                student_last_name=row["last_name"],
-                course_name=row["course_name"],
-                course_summary=row.get("course_summary"),
-                year_of_study=row.get("year_of_study"),
-                verification_code=cert_num,
-                qr_code_url=qr_path,
-                issued_at=row["issuance_date"]
-            )
+        # Handle Excel files
+        elif filename.endswith(('.xlsx', '.xls')):
+            # Read Excel file
+            df = pd.read_excel(file)
+            # Convert to list of dictionaries
+            rows = df.to_dict('records')
+        
+        else:
+            return jsonify({"error": "Unsupported file format. Please upload CSV or Excel file."}), 400
 
-            db.session.add(cert)
-            created_count += 1
+        # Process rows
+        for row in rows:
+            try:
+                # Handle different column name formats
+                first_name = row.get("first_name") or row.get("First Name") or row.get("First_Name")
+                last_name = row.get("last_name") or row.get("Last Name") or row.get("Last_Name")
+                course_name = row.get("course_name") or row.get("Course Name") or row.get("Course_Name")
+                course_summary = row.get("course_summary") or row.get("Course Summary") or row.get("Course_Summary")
+                year_of_study = row.get("year_of_study") or row.get("Year of Study") or row.get("Year_of_Study")
+                issuance_date = row.get("issuance_date") or row.get("Issuance Date") or row.get("Issuance_Date")
 
-        except Exception as e:
-            errors.append(str(e))
+                # Validate required fields
+                if not all([first_name, last_name, course_name, issuance_date]):
+                    errors.append(f"Missing required fields for row: {row}")
+                    continue
 
-    db.session.commit()
+                cert_num = generate_certificate_number(course_name)
+                qr_path = generate_certificate_qr(
+                    f"{first_name} {last_name}",
+                    course_name,
+                    cert_num,
+                    issuance_date
+                )
 
-    return jsonify({
-        "message": "CSV processed",
-        "imported": created_count,
-        "errors": errors
-    })
+                cert = Certificate(
+                    student_first_name=first_name,
+                    student_last_name=last_name,
+                    course_name=course_name,
+                    course_summary=course_summary,
+                    year_of_study=year_of_study,
+                    verification_code=cert_num,
+                    qr_code_url=qr_path,
+                    issued_at=issuance_date
+                )
 
+                db.session.add(cert)
+                created_count += 1
 
+            except Exception as e:
+                errors.append(f"Error processing row {row}: {str(e)}")
 
+        db.session.commit()
 
+        return jsonify({
+            "message": "File processed successfully",
+            "imported": created_count,
+            "errors": errors,
+            "total_rows": len(rows)
+        })
 
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "error": f"Failed to process file: {str(e)}"
+        }), 500
 
+# def import_certificates_csv():
+#     file = request.files.get("file")
 
+#     if not file:
+#         return jsonify({"error": "CSV file is required"}), 400
 
+#     stream = StringIO(file.stream.read().decode("utf-8"))
+#     csv_reader = csv.DictReader(stream)
 
-# from ..models.certificate import Certificate
-# from ..extensions import db
-# from ..utils.code_generator import generate_unique_code
-# from ..utils.pdf_generator import generate_certificate_pdf
-# from ..utils.image_processor import pdf_to_image
+#     created_count = 0
+#     errors = []
 
-# def create_certificate(data):
-#     student_name = data.get("student_name")
-#     course_name = data.get("course_name")
+#     for row in csv_reader:
+#         try:
+#             cert_num = generate_certificate_number(row["course_name"])
+#             qr_path = generate_certificate_qr(
+#                 f"{row['first_name']} {row['last_name']}",
+#                 row["course_name"],
+#                 cert_num,
+#                 row["issuance_date"]
+#             )
 
-#     verification_code = generate_unique_code()
+#             cert = Certificate(
+#                 student_first_name=row["first_name"],
+#                 student_last_name=row["last_name"],
+#                 course_name=row["course_name"],
+#                 course_summary=row.get("course_summary"),
+#                 year_of_study=row.get("year_of_study"),
+#                 verification_code=cert_num,
+#                 qr_code_url=qr_path,
+#                 issued_at=row["issuance_date"]
+#             )
 
-#     # Generate PDF
-#     pdf_path = generate_certificate_pdf(student_name, course_name, verification_code)
+#             db.session.add(cert)
+#             created_count += 1
 
-#     # Generate image
-#     image_path = pdf_to_image(pdf_path)
+#         except Exception as e:
+#             errors.append(str(e))
 
-#     cert = Certificate(
-#         student_name=student_name,
-#         course_name=course_name,
-#         verification_code=verification_code,
-#         pdf_url=pdf_path,
-#         image_url=image_path,
-#     )
-
-#     db.session.add(cert)
 #     db.session.commit()
 
-#     return {
-#         "message": "Certificate created successfully",
-#         "student_name": student_name,
-#         "course_name": course_name,
-#         "verification_code": verification_code,
-#         "pdf_url": pdf_path,
-#         "image_url": image_path,
-#     }
+#     return jsonify({
+#         "message": "CSV processed",
+#         "imported": created_count,
+#         "errors": errors
+#     })
+
 
 

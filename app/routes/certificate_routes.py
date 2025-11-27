@@ -105,15 +105,33 @@ def delete_cert(cert_id):
 @certificate_bp.post("/certificates/import")
 @swag_from({
     "tags": ["Certificates"],
-    "summary": "Import certificates via CSV",
-    "description": "Uploads a CSV file containing multiple certificate records and inserts them into the database.",
+    "summary": "Import certificates via CSV or Excel",
+    "description": "Uploads a CSV or Excel file containing multiple certificate records and inserts them into the database.",
     "consumes": ["multipart/form-data"],
     "parameters": [
-        {"in": "formData", "name": "file", "type": "file", "required": True}
+        {
+            "in": "formData", 
+            "name": "file", 
+            "type": "file", 
+            "required": True,
+            "description": "CSV or Excel file with columns: first_name, last_name, course_name, course_summary, year_of_study, issuance_date"
+        }
     ],
     "responses": {
-        "200": {"description": "CSV processed successfully, returns imported count and errors"},
-        "400": {"description": "File not provided or invalid"}
+        "200": {
+            "description": "File processed successfully",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string"},
+                    "imported": {"type": "integer"},
+                    "errors": {"type": "array"},
+                    "total_rows": {"type": "integer"}
+                }
+            }
+        },
+        "400": {"description": "File not provided or invalid format"},
+        "500": {"description": "Server error processing file"}
     }
 })
 def import_csv():
