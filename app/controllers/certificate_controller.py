@@ -10,6 +10,28 @@ from io import StringIO
 import pandas as pd
 from io import BytesIO, StringIO
 from datetime import datetime
+import re
+from ..utils.google_drive_simple import drive_service 
+
+
+# Helper function to extract Google Drive file ID
+def extract_file_id_from_url(url):
+    """Extract file ID from Google Drive URL"""
+    if not url:
+        return None
+    
+    patterns = [
+        r'id=([\w-]+)',  # For uc?export=view&id=...
+        r'/d/([\w-]+)',   # For /d/file_id/view
+        r'/file/d/([\w-]+)'  # For /file/d/file_id
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    
+    return None
 
 
 # ===================================
@@ -53,7 +75,7 @@ def create_certificate():
         student = Student(
             first_name=first_name,
             last_name=last_name,
-            email=data.get("email", f"{first_name}.{last_name}@example.com"),  # Default email
+            email=data.get("email", f"{first_name}.{last_name}@Speedlinkng.com"),  # Default email
             phone_number=data.get("phone_number"),
             course_name=course_name,
             year_of_study=year_of_study
@@ -65,7 +87,8 @@ def create_certificate():
     certificate_number = generate_certificate_number(course_name, issuance_date)
 
     # Generate QR - now passing date object instead of string
-    qr_path = generate_certificate_qr(
+    full_name = first_name + " " + last_name
+    qr_url = generate_certificate_qr(
         f"{first_name} {last_name}",
         course_name,
         certificate_number,
@@ -80,7 +103,9 @@ def create_certificate():
         course_summary=course_summary,
         year_of_study=year_of_study,
         verification_code=certificate_number,
-        qr_code_url=qr_path,
+        # qr_code_url=qr_path,
+        qr_code_url=qr_url,
+
         issued_at=issuance_date,  # Use the date object here too
     )
 
@@ -90,7 +115,8 @@ def create_certificate():
     return jsonify({
         "message": "Certificate created successfully",
         "certificate_number": certificate_number,
-        "student_id": student.id  # NEW: Return student ID
+        "student_id": student.id,  # NEW: Return student ID
+        "qr_code_url": qr_url
     }), 201
 
 
@@ -98,32 +124,64 @@ def create_certificate():
 # PAGINATED LIST (Optimized, no N+1)
 # ===================================
 def list_certificates():
-    page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 10))
+    # Remove pagination
+    query = Certificate.query.options(
+        joinedload(Certificate.student)
+    ).order_by(Certificate.created_at.desc())
 
-    query = Certificate.query.order_by(Certificate.created_at.desc())
-
-    paginated = query.paginate(page=page, per_page=limit, error_out=False)
+    # Get all certificates
+    all_certificates = query.all()
 
     return jsonify({
-        "total": paginated.total,
-        "page": paginated.page,
-        "pages": paginated.pages,
-        "items": [
+        "certificates": [
             {
                 "id": c.id,
-                "student_id": c.student_id,  # NEW: Include student_id
+                "student_id": c.student_id,
                 "student_name": f"{c.student_first_name} {c.student_last_name}",
                 "course_name": c.course_name,
                 "verification_code": c.verification_code,
                 "issued_at": c.issued_at.strftime("%a, %d %b %Y") if c.issued_at else None,
                 "qr_code_url": c.qr_code_url,
-                # Optional: Include student email if needed
-                "student_email": c.student.email if c.student else None
+                "student_email": c.student.email if c.student else None,
+                "year_of_study": c.year_of_study,
+                "course_summary": c.course_summary
             }
-            for c in paginated.items
-        ]
+            for c in all_certificates
+        ],
+        "count": len(all_certificates)
     })
+
+# def list_certificates():
+#     page = int(request.args.get("page", 1))
+#     limit = int(request.args.get("limit", 10))
+
+#     # query = Certificate.query.order_by(Certificate.created_at.desc())
+
+#     query = Certificate.query.options(
+#         joinedload(Certificate.student)
+#     ).order_by(Certificate.created_at.desc())
+
+#     paginated = query.paginate(page=page, per_page=limit, error_out=False)
+
+#     return jsonify({
+#         "total": paginated.total,
+#         "page": paginated.page,
+#         "pages": paginated.pages,
+#         "items": [
+#             {
+#                 "id": c.id,
+#                 "student_id": c.student_id,  # NEW: Include student_id
+#                 "student_name": f"{c.student_first_name} {c.student_last_name}",
+#                 "course_name": c.course_name,
+#                 "verification_code": c.verification_code,
+#                 "issued_at": c.issued_at.strftime("%a, %d %b %Y") if c.issued_at else None,
+#                 "qr_code_url": c.qr_code_url,
+#                 # Optional: Include student email if needed
+#                 "student_email": c.student.email if c.student else None
+#             }
+#             for c in paginated.items
+#         ]
+#     })
 
 
 # ===================================
@@ -133,15 +191,38 @@ def update_certificate(cert_id):
     cert = Certificate.query.get_or_404(cert_id)
     data = request.get_json()
 
+    old_first_name = cert.student_first_name
+    old_last_name = cert.student_last_name
+    old_course_name = cert.course_name
+
+
     cert.student_first_name = data.get("first_name", cert.student_first_name)
     cert.student_last_name = data.get("last_name", cert.student_last_name)
     cert.course_name = data.get("course_name", cert.course_name)
     cert.course_summary = data.get("course_summary", cert.course_summary)
     cert.year_of_study = data.get("year_of_study", cert.year_of_study)
 
+    # If name or course changed, regenerate QR code
+    if (cert.student_first_name != old_first_name or 
+        cert.student_last_name != old_last_name or 
+        cert.course_name != old_course_name):
+        
+        # Delete old QR code from Google Drive
+        if cert.qr_code_url and 'google.com' in cert.qr_code_url:
+            drive_service.delete_file_by_url(cert.qr_code_url)
+        
+        # Generate new QR code
+        new_qr_url = generate_certificate_qr(
+            f"{cert.student_first_name} {cert.student_last_name}",
+            cert.course_name,
+            cert.verification_code,
+            cert.issued_at
+        )
+        cert.qr_code_url = new_qr_url
+
     db.session.commit()
 
-    return jsonify({"message": "Certificate updated successfully"})
+    return jsonify({"message": "Certificate updated successfully", "qr_code_url": cert.qr_code_url})
 
 
 # ===================================
@@ -149,6 +230,11 @@ def update_certificate(cert_id):
 # ===================================
 def delete_certificate(cert_id):
     cert = Certificate.query.get_or_404(cert_id)
+
+    # Delete QR code from Google Drive
+    if cert.qr_code_url and 'google.com' in cert.qr_code_url:
+        drive_service.delete_file_by_url(cert.qr_code_url)
+
     db.session.delete(cert)
     db.session.commit()
 
@@ -348,6 +434,10 @@ def import_certificates_csv():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to process file: {str(e)}"}), 500
+
+
+
+
 
 # use this version for production 
 

@@ -10,13 +10,14 @@ import os
 # LIST STUDENTS (Paginated)
 # -------------------------
 def list_students():
-    page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 10))
+    # Remove pagination parameters
     query = Student.query.order_by(Student.created_at.desc())
-    paginated = query.paginate(page=page, per_page=limit, error_out=False)
+    
+    # Get all students
+    all_students = query.all()
 
     students = []
-    for s in paginated.items:
+    for s in all_students:
         students.append({
             "id": s.id,
             "first_name": s.first_name,
@@ -26,15 +27,42 @@ def list_students():
             "course_name": s.course_name,
             "year_of_study": s.year_of_study,
             "status": "Certified" if s.certificates else "Not Certified",
-            "created_at": s.created_at
+            "created_at": s.created_at.strftime("%Y-%m-%d %H:%M:%S") if s.created_at else None,
+            "certificate_count": len(s.certificates) if s.certificates else 0
         })
 
     return jsonify({
-        "total": paginated.total,
-        "page": page,
-        "limit": limit,
-        "students": students
+        "students": students,
+        "count": len(students)
     })
+
+# def list_students():
+#     page = int(request.args.get("page", 1))
+#     limit = int(request.args.get("limit", 10))
+#     query = Student.query.order_by(Student.created_at.desc())
+#     paginated = query.paginate(page=page, per_page=limit, error_out=False)
+
+#     students = []
+#     for s in paginated.items:
+#         students.append({
+#             "id": s.id,
+#             # "student_id":
+#             "first_name": s.first_name,
+#             "last_name": s.last_name,
+#             "email": s.email,
+#             "phone_number": s.phone_number,
+#             "course_name": s.course_name,
+#             "year_of_study": s.year_of_study,
+#             "status": "Certified" if s.certificates else "Not Certified",
+#             "created_at": s.created_at
+#         })
+
+#     return jsonify({
+#         "total": paginated.total,
+#         "page": page,
+#         "limit": limit,
+#         "students": len(students)
+#     })
 
 # -------------------------
 # CREATE STUDENT

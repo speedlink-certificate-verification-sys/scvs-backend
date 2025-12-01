@@ -5,6 +5,7 @@ from flask import request
 from datetime import datetime
 
 
+
 def verify_certificate(code):
     try:
         # FIX: Remove is_active filter since it doesn't exist in your model
@@ -54,42 +55,7 @@ def verify_certificate(code):
             "message": f"Verification failed: {str(e)}"
         }, 500
     
-# def verify_certificate(code):
-#     cert = Certificate.query.filter_by(
-#         verification_code=code,
-#         is_active=True
-#     ).first()
 
-#     ip = request.remote_addr
-#     status = "VALID" if cert else "INVALID"
-
-#     # Log attempt
-#     log = VerificationLog(
-#         certificate_id=cert.id if cert else None,
-#         verified_at=datetime.utcnow(),
-#         ip_address=ip,
-#         status=status
-#     )
-#     db.session.add(log)
-#     db.session.commit()
-
-#     if not cert:
-#         return {
-#             "status": "INVALID",
-#             "certificate": None
-#         }
-
-#     return {
-#         "status": "VALID",
-#         "certificate": {
-#             "student_name": cert.student_name,
-#             "course_name": cert.course_name,
-#             "verification_code": cert.verification_code,
-#             "pdf_url": cert.pdf_url,
-#             "image_url": cert.image_url,
-#             "qr_code_url": cert.qr_code_url,
-#         }
-#     }
 
 
 
