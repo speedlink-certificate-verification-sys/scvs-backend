@@ -94,6 +94,7 @@ def login_user(data):
     else:
         return {"message": "Invalid email or password"}, 401
     
+    
 # def login_user(data):
 #     email = data.get('email')
 #     password = data.get('password')

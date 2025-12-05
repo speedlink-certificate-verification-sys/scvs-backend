@@ -57,8 +57,8 @@ class GoogleDriveOAuthService:
         # Get folder ID from environment
         self.folder_id = os.getenv('GOOGLE_DRIVE_FOLDER_ID')
         
-        print(f"✅ Google Drive authenticated as: {self.creds.client_id}")
-        print(f"✅ Using folder ID: {self.folder_id}")
+        print(f"Google Drive authenticated as: {self.creds.client_id}")
+        print(f"Using folder ID: {self.folder_id}")
     
     def upload_file(self, file_bytes, filename, mime_type='image/png'):
         """Upload file to Google Drive"""
@@ -81,7 +81,7 @@ class GoogleDriveOAuthService:
                 fields='id, name, webViewLink'
             ).execute()
             
-            print(f"✅ File uploaded: {filename}")
+            print(f"File uploaded: {filename}")
             
             # Make file publicly readable
             self.service.permissions().create(
@@ -93,7 +93,7 @@ class GoogleDriveOAuthService:
             return f"https://drive.google.com/uc?export=view&id={file['id']}"
             
         except Exception as e:
-            print(f"❌ Upload error: {e}")
+            print(f"Upload error: {e}")
             # Fallback
             return self._save_temp_fallback(file_bytes, filename)
     
@@ -106,7 +106,7 @@ class GoogleDriveOAuthService:
         with open(temp_path, 'wb') as f:
             f.write(file_bytes)
         
-        print(f"⚠️  Saved locally: {temp_path}")
+        print(f"Saved locally: {temp_path}")
         return temp_path
 
 # Global instance

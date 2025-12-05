@@ -23,7 +23,7 @@ class GoogleDriveService:
             "client_x509_cert_url": os.getenv('GOOGLE_CLIENT_X509_CERT_URL')
         }
         
-        print("🔧 Initializing Google Drive Service for Shared Drive...")
+        print("Initializing Google Drive Service for Shared Drive...")
         print(f"Service Account: {service_account_info['client_email']}")
         
         # Create credentials
@@ -43,11 +43,11 @@ class GoogleDriveService:
         print(f"Folder ID: {self.folder_id}")
         
         if not self.drive_id:
-            print("⚠️ WARNING: GOOGLE_SHARED_DRIVE_ID not set")
+            print("WARNING: GOOGLE_SHARED_DRIVE_ID not set")
         if not self.folder_id:
-            print("⚠️ WARNING: GOOGLE_DRIVE_FOLDER_ID not set")
+            print("WARNING: GOOGLE_DRIVE_FOLDER_ID not set")
         
-        print("✅ Google Drive service initialized")
+        print("Google Drive service initialized")
     
     def upload_file(self, file_bytes, filename, mime_type='image/png'):
         """Upload file to Shared Drive"""
@@ -55,7 +55,7 @@ class GoogleDriveService:
             if not self.folder_id:
                 raise Exception("GOOGLE_DRIVE_FOLDER_ID not set")
             
-            print(f"📤 Uploading {filename} to Shared Drive...")
+            print(f"Uploading {filename} to Shared Drive...")
             
             # File metadata
             file_metadata = {
@@ -84,7 +84,7 @@ class GoogleDriveService:
             file = self.service.files().create(**upload_params).execute()
             
             file_id = file.get('id')
-            print(f"✅ File uploaded, ID: {file_id}")
+            print(f"File uploaded, ID: {file_id}")
             
             # Make file publicly readable
             try:
@@ -97,17 +97,17 @@ class GoogleDriveService:
                     },
                     supportsAllDrives=True
                 ).execute()
-                print("✅ File made publicly accessible")
+                print("File made publicly accessible")
             except Exception as perm_error:
-                print(f"⚠️ Could not set public permissions: {perm_error}")
+                print(f"Could not set public permissions: {perm_error}")
             
             # Return direct view link
             url = f"https://drive.google.com/uc?export=view&id={file_id}"
-            print(f"✅ Public URL: {url}")
+            print(f"Public URL: {url}")
             return url
             
         except HttpError as error:
-            print(f"❌ Google Drive API Error: {error}")
+            print(f"Google Drive API Error: {error}")
             if error.resp.status == 404:
                 print("   Error 404: Folder not found or no access")
                 print(f"   Check if service account has access to folder: {self.folder_id}")
@@ -117,7 +117,7 @@ class GoogleDriveService:
             return self._save_temp_fallback(file_bytes, filename)
             
         except Exception as error:
-            print(f"❌ Upload Error: {error}")
+            print(f"Upload Error: {error}")
             return self._save_temp_fallback(file_bytes, filename)
     
     def _save_temp_fallback(self, file_bytes, filename):
@@ -130,10 +130,10 @@ class GoogleDriveService:
             with open(temp_path, 'wb') as f:
                 f.write(file_bytes)
             
-            print(f"⚠️ Saved to temporary location: {temp_path}")
+            print(f"Saved to temporary location: {temp_path}")
             return temp_path
         except Exception as e:
-            print(f"❌ Failed to save locally: {e}")
+            print(f"Failed to save locally: {e}")
             return None
     
     def delete_file(self, file_url):
@@ -143,17 +143,17 @@ class GoogleDriveService:
             if 'id=' in file_url:
                 file_id = file_url.split('id=')[1].split('&')[0]
                 
-                print(f"🗑️ Deleting file: {file_id}")
+                print(f"Deleting file: {file_id}")
                 self.service.files().delete(
                     fileId=file_id,
                     supportsAllDrives=True
                 ).execute()
                 
-                print(f"✅ File deleted successfully")
+                print(f"File deleted successfully")
                 return True
                 
         except Exception as error:
-            print(f"❌ Error deleting file: {error}")
+            print(f"Error deleting file: {error}")
         
         return False
 

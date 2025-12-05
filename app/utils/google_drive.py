@@ -20,25 +20,25 @@ class GoogleDriveService:
         """Authenticate using OAuth 2.0 - loads existing token or creates new one"""
         token_path = os.path.join(tempfile.gettempdir(), 'drive_token.pickle')
         
-        print("🔧 Initializing Google Drive...")
+        print("Initializing Google Drive...")
         
         # Try to load existing token
         if os.path.exists(token_path):
             try:
                 with open(token_path, 'rb') as token:
                     self.creds = pickle.load(token)
-                print("✅ Loaded existing credentials")
+                print("Loaded existing credentials")
             except:
-                print("⚠️  Could not load existing credentials")
+                print("Could not load existing credentials")
         
         # If no valid credentials, we need to get new ones
         if not self.creds or not self.creds.valid:
             if self.creds and self.creds.expired and self.creds.refresh_token:
-                print("🔄 Refreshing expired credentials...")
+                print("Refreshing expired credentials...")
                 self.creds.refresh(Request())
             else:
-                print("❌ No valid credentials. You need to run the setup script.")
-                print("   Run: python setup_google_drive.py")
+                print("No valid credentials. You need to run the setup script.")
+                print("Run: python setup_google_drive.py")
                 return
             
             # Save refreshed credentials
@@ -47,8 +47,8 @@ class GoogleDriveService:
         
         # Build the service
         self.service = build('drive', 'v3', credentials=self.creds)
-        print(f"✅ Google Drive authenticated successfully")
-        print(f"✅ Using folder ID: {self.folder_id}")
+        print(f"Google Drive authenticated successfully")
+        print(f"Using folder ID: {self.folder_id}")
     
     def is_authenticated(self):
         """Check if we're authenticated"""
@@ -57,15 +57,15 @@ class GoogleDriveService:
     def upload_file(self, file_bytes, filename, mime_type='image/png'):
         """Upload file to Google Drive"""
         if not self.service:
-            print("❌ Not authenticated. Run setup script first.")
+            print("Not authenticated. Run setup script first.")
             return self._save_temp(file_bytes, filename)
         
         if not self.folder_id:
-            print("❌ GOOGLE_DRIVE_FOLDER_ID not set")
+            print("GOOGLE_DRIVE_FOLDER_ID not set")
             return self._save_temp(file_bytes, filename)
         
         try:
-            print(f"📤 Uploading {filename}...")
+            print(f"Uploading {filename}...")
             
             file_metadata = {
                 'name': filename,
@@ -83,7 +83,7 @@ class GoogleDriveService:
             ).execute()
             
             file_id = file.get('id')
-            print(f"✅ File uploaded, ID: {file_id}")
+            print(f"File uploaded, ID: {file_id}")
             
             # Make file publicly readable
             self.service.permissions().create(
@@ -97,11 +97,11 @@ class GoogleDriveService:
             
             # Return direct view link
             url = f"https://drive.google.com/uc?export=view&id={file_id}"
-            print(f"✅ Public URL: {url}")
+            print(f"Public URL: {url}")
             return url
             
         except Exception as error:
-            print(f"❌ Upload failed: {error}")
+            print(f"Upload failed: {error}")
             return self._save_temp(file_bytes, filename)
     
     def _save_temp(self, file_bytes, filename):
@@ -114,10 +114,10 @@ class GoogleDriveService:
             with open(temp_path, 'wb') as f:
                 f.write(file_bytes)
             
-            print(f"⚠️  Saved to temporary location: {temp_path}")
+            print(f"Saved to temporary location: {temp_path}")
             return temp_path
         except Exception as e:
-            print(f"❌ Failed to save locally: {e}")
+            print(f"Failed to save locally: {e}")
             return None
 
 # Global instance

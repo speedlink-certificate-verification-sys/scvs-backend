@@ -11,7 +11,7 @@ class GoogleDriveService:
         service_file = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
 
         if not service_file or not os.path.exists(service_file):
-            print("❌ Service account JSON file missing")
+            print(" Service account JSON file missing")
             self.service = None
             return
 
@@ -23,11 +23,11 @@ class GoogleDriveService:
         )
 
         self.service = build("drive", "v3", credentials=creds)
-        print("✅ Google Drive authenticated using Service Account")
+        print("Google Drive authenticated using Service Account")
 
     def upload_file(self, file_bytes, filename, mime_type="image/png"):
         if not self.service:
-            print("❌ Drive service not initialized")
+            print(" Drive service not initialized")
             return None
         
         file_metadata = {
