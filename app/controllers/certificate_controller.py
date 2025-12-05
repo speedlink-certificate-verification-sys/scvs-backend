@@ -187,25 +187,37 @@ def list_certificates():
 # ===================================
 # EDIT CERTIFICATE
 # ===================================
-def update_certificate(cert_id):
-    cert = Certificate.query.get_or_404(cert_id)
+def update_certificate(code):
+    cert = Certificate.query.get_or_404(code)
     data = request.get_json()
 
     old_first_name = cert.student_first_name
     old_last_name = cert.student_last_name
     old_course_name = cert.course_name
+    old_verification_code = cert.verification_code
 
-
+    # Update basic fields
     cert.student_first_name = data.get("first_name", cert.student_first_name)
     cert.student_last_name = data.get("last_name", cert.student_last_name)
     cert.course_name = data.get("course_name", cert.course_name)
     cert.course_summary = data.get("course_summary", cert.course_summary)
     cert.year_of_study = data.get("year_of_study", cert.year_of_study)
+    
+    # NEW: Check if verification_code should be updated
+    new_verification_code = data.get("verification_code")
+    if new_verification_code and new_verification_code != old_verification_code:
+        # Check if new code already exists
+        existing = Certificate.query.filter_by(verification_code=new_verification_code).first()
+        if existing and existing.id != cert.id:
+            return jsonify({"error": "Verification code already exists"}), 400
+        
+        cert.verification_code = new_verification_code
 
-    # If name or course changed, regenerate QR code
+    # Regenerate QR if any of these changed
     if (cert.student_first_name != old_first_name or 
         cert.student_last_name != old_last_name or 
-        cert.course_name != old_course_name):
+        cert.course_name != old_course_name or
+        cert.verification_code != old_verification_code):
         
         # Delete old QR code from Google Drive
         if cert.qr_code_url and 'google.com' in cert.qr_code_url:
@@ -215,21 +227,62 @@ def update_certificate(cert_id):
         new_qr_url = generate_certificate_qr(
             f"{cert.student_first_name} {cert.student_last_name}",
             cert.course_name,
-            cert.verification_code,
+            cert.verification_code,  # Use updated code
             cert.issued_at
         )
         cert.qr_code_url = new_qr_url
 
     db.session.commit()
 
-    return jsonify({"message": "Certificate updated successfully", "qr_code_url": cert.qr_code_url})
+    return jsonify({
+        "message": "Certificate updated successfully", 
+        "qr_code_url": cert.qr_code_url,
+        "verification_code": cert.verification_code
+    })
+
+# def update_certificate(cert_id):
+#     cert = Certificate.query.get_or_404(cert_id)
+#     data = request.get_json()
+
+#     old_first_name = cert.student_first_name
+#     old_last_name = cert.student_last_name
+#     old_course_name = cert.course_name
+
+
+#     cert.student_first_name = data.get("first_name", cert.student_first_name)
+#     cert.student_last_name = data.get("last_name", cert.student_last_name)
+#     cert.course_name = data.get("course_name", cert.course_name)
+#     cert.course_summary = data.get("course_summary", cert.course_summary)
+#     cert.year_of_study = data.get("year_of_study", cert.year_of_study)
+
+#     # If name or course changed, regenerate QR code
+#     if (cert.student_first_name != old_first_name or 
+#         cert.student_last_name != old_last_name or 
+#         cert.course_name != old_course_name):
+        
+#         # Delete old QR code from Google Drive
+#         if cert.qr_code_url and 'google.com' in cert.qr_code_url:
+#             drive_service.delete_file_by_url(cert.qr_code_url)
+        
+#         # Generate new QR code
+#         new_qr_url = generate_certificate_qr(
+#             f"{cert.student_first_name} {cert.student_last_name}",
+#             cert.course_name,
+#             cert.verification_code,
+#             cert.issued_at
+#         )
+#         cert.qr_code_url = new_qr_url
+
+#     db.session.commit()
+
+#     return jsonify({"message": "Certificate updated successfully", "qr_code_url": cert.qr_code_url})
 
 
 # ===================================
 # DELETE CERTIFICATE
 # ===================================
-def delete_certificate(cert_id):
-    cert = Certificate.query.get_or_404(cert_id)
+def delete_certificate(code):
+    cert = Certificate.query.get_or_404(code)
 
     # Delete QR code from Google Drive
     if cert.qr_code_url and 'google.com' in cert.qr_code_url:

@@ -96,8 +96,8 @@ def list_cert():
         "404": {"description": "Certificate not found"}
     }
 })
-def update_cert(cert_id):
-    return update_certificate(cert_id)
+def update_cert(code):
+    return update_certificate(code)
 
 
 @certificate_bp.delete("/certificates/<path:code>")
@@ -113,8 +113,8 @@ def update_cert(cert_id):
         "404": {"description": "Certificate not found"}
     }
 })
-def delete_cert(cert_id):
-    return delete_certificate(cert_id)
+def delete_cert(code):
+    return delete_certificate(code)
 
 
 @certificate_bp.post("/certificates/import")
