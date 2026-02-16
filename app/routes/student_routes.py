@@ -1,6 +1,6 @@
 from flask import Blueprint
 from ..controllers.student_controller import (
-    list_students, create_student, update_student, delete_student, import_students_csv
+    list_students, create_student, update_student, delete_student, import_students_csv, download_sample_student_file
 )
 from flasgger import swag_from
 
@@ -112,3 +112,51 @@ def delete_student_route(student_id):
 })
 def import_students_route():
     return import_students_csv()
+
+
+
+# Then add this new route at the end of the file (or anywhere appropriate):
+
+@student_bp.get("/download-sample")
+@swag_from({
+    "tags": ["Student Management"],
+    "summary": "Download sample import file",
+    "description": "Downloads a sample CSV or Excel template for student import. Use this to see the expected format.",
+    "parameters": [
+        {
+            "in": "query", 
+            "name": "format", 
+            "type": "string", 
+            "enum": ["csv", "xlsx"],
+            "default": "csv",
+            "description": "File format (csv or xlsx)"
+        }
+    ],
+    "responses": {
+        "200": {
+            "description": "Sample file downloaded successfully",
+            "content": {
+                "text/csv": {
+                    "schema": {
+                        "type": "string", 
+                        "format": "binary"
+                    }
+                },
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                    "schema": {
+                        "type": "string", 
+                        "format": "binary"
+                    }
+                }
+            }
+        },
+        "400": {
+            "description": "Unsupported file format"
+        },
+        "500": {
+            "description": "Server error (e.g., missing pandas for Excel export)"
+        }
+    }
+})
+def download_sample():
+    return download_sample_student_file()

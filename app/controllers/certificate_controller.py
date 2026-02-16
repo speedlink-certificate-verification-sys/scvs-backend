@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import Response, request, jsonify
 from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models.certificate import Certificate
@@ -151,39 +151,6 @@ def list_certificates():
         "count": len(all_certificates)
     })
 
-# def list_certificates():
-#     page = int(request.args.get("page", 1))
-#     limit = int(request.args.get("limit", 10))
-
-#     # query = Certificate.query.order_by(Certificate.created_at.desc())
-
-#     query = Certificate.query.options(
-#         joinedload(Certificate.student)
-#     ).order_by(Certificate.created_at.desc())
-
-#     paginated = query.paginate(page=page, per_page=limit, error_out=False)
-
-#     return jsonify({
-#         "total": paginated.total,
-#         "page": paginated.page,
-#         "pages": paginated.pages,
-#         "items": [
-#             {
-#                 "id": c.id,
-#                 "student_id": c.student_id,  # NEW: Include student_id
-#                 "student_name": f"{c.student_first_name} {c.student_last_name}",
-#                 "course_name": c.course_name,
-#                 "verification_code": c.verification_code,
-#                 "issued_at": c.issued_at.strftime("%a, %d %b %Y") if c.issued_at else None,
-#                 "qr_code_url": c.qr_code_url,
-#                 # Optional: Include student email if needed
-#                 "student_email": c.student.email if c.student else None
-#             }
-#             for c in paginated.items
-#         ]
-#     })
-
-
 # ===================================
 # EDIT CERTIFICATE
 # ===================================
@@ -317,44 +284,6 @@ def update_certificate(code):
         response_data["note"] = "QR code not regenerated during update"
     
     return jsonify(response_data)
-
-# def update_certificate(cert_id):
-#     cert = Certificate.query.get_or_404(cert_id)
-#     data = request.get_json()
-
-#     old_first_name = cert.student_first_name
-#     old_last_name = cert.student_last_name
-#     old_course_name = cert.course_name
-
-
-#     cert.student_first_name = data.get("first_name", cert.student_first_name)
-#     cert.student_last_name = data.get("last_name", cert.student_last_name)
-#     cert.course_name = data.get("course_name", cert.course_name)
-#     cert.course_summary = data.get("course_summary", cert.course_summary)
-#     cert.year_of_study = data.get("year_of_study", cert.year_of_study)
-
-#     # If name or course changed, regenerate QR code
-#     if (cert.student_first_name != old_first_name or 
-#         cert.student_last_name != old_last_name or 
-#         cert.course_name != old_course_name):
-        
-#         # Delete old QR code from Google Drive
-#         if cert.qr_code_url and 'google.com' in cert.qr_code_url:
-#             drive_service.delete_file_by_url(cert.qr_code_url)
-        
-#         # Generate new QR code
-#         new_qr_url = generate_certificate_qr(
-#             f"{cert.student_first_name} {cert.student_last_name}",
-#             cert.course_name,
-#             cert.verification_code,
-#             cert.issued_at
-#         )
-#         cert.qr_code_url = new_qr_url
-
-#     db.session.commit()
-
-#     return jsonify({"message": "Certificate updated successfully", "qr_code_url": cert.qr_code_url})
-
 
 # ===================================
 # DELETE CERTIFICATE
@@ -567,4 +496,108 @@ def import_certificates_csv():
         return jsonify({"error": f"Failed to process file: {str(e)}"}), 500
 
 
+# Add this to your certificate_controller.py file
 
+# ===================================
+# DOWNLOAD SAMPLE CERTIFICATE FILE
+# ===================================
+def download_sample_certificate_file():
+    """Generate and download a sample CSV/Excel template for certificate import"""
+    
+    file_format = request.args.get('format', 'csv').lower()
+    
+    # Sample data for certificate import
+    sample_data = [
+        {
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com",
+            "phone_number": "+2348012345678",
+            "course_name": "Web Development",
+            "course_summary": "Completed full stack web development course",
+            "year_of_study": "2024",
+            "issuance_date": "2024-12-15"
+        },
+        {
+            "first_name": "Jane",
+            "last_name": "Smith",
+            "email": "jane.smith@example.com",
+            "phone_number": "+2348123456789",
+            "course_name": "Data Science",
+            "course_summary": "Successfully completed data science bootcamp",
+            "year_of_study": "2024",
+            "issuance_date": "2024-11-20"
+        },
+        {
+            "first_name": "Michael",
+            "last_name": "Johnson",
+            "email": "michael.j@example.com",
+            "phone_number": "+2348234567890",
+            "course_name": "UI/UX Design",
+            "course_summary": "Mastered user interface and user experience design",
+            "year_of_study": "2025",
+            "issuance_date": "2025-01-10"
+        }
+    ]
+    
+    # filename = f"certificate_import_template.{file_format}"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    filename = f"certificate_import_template_{timestamp}.{file_format}"
+    
+    if file_format == 'csv':
+        # Create CSV
+        output = StringIO()
+        if sample_data:
+            fieldnames = sample_data[0].keys()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(sample_data)
+        
+        # Create response
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'text/csv'
+            }
+        )
+        return response
+        
+    elif file_format in ['xlsx', 'excel']:
+        # Create Excel file
+        df = pd.DataFrame(sample_data)
+        output = BytesIO()
+        
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Certificates', index=False)
+            
+            # Auto-adjust column widths
+            worksheet = writer.sheets['Certificates']
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        output.seek(0)
+        
+        # Create response
+        response = Response(
+            output.read(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }
+        )
+        return response
+    
+    else:
+        return jsonify({"error": "Unsupported file format. Use 'csv' or 'xlsx'"}), 400

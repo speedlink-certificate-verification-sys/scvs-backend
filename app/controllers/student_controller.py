@@ -1,5 +1,6 @@
 from datetime import datetime
-from flask import request, jsonify
+from io import StringIO
+from flask import Response, request, jsonify
 from ..models.student import Student
 from ..models.certificate import Certificate
 from ..extensions import db
@@ -241,3 +242,190 @@ def import_students_csv():
 
     os.remove(filepath)
     return {"message": f"{created_count} students imported successfully"}
+
+
+
+# Add this to your student_controller.py file
+
+# -------------------------
+# DOWNLOAD SAMPLE STUDENT FILE
+# -------------------------
+def download_sample_student_file():
+    """Generate and download a sample CSV/Excel template for student import"""
+    
+    file_format = request.args.get('format', 'csv').lower()
+    
+    # Sample data for student import - matching your CSV import structure
+    sample_data = [
+        {
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com",
+            "phone_number": "+2348012345678",
+            "course_name": "Web Development",
+            "year_of_study": "2024",
+            "program_start_date": "2024-01-15",
+            "program_end_date": "2024-06-30",
+            "photo_url": "https://example.com/photos/john_doe.jpg"
+        },
+        {
+            "first_name": "Jane",
+            "last_name": "Smith",
+            "email": "jane.smith@example.com",
+            "phone_number": "+2348123456789",
+            "course_name": "Data Science",
+            "year_of_study": "2024",
+            "program_start_date": "2024-02-10",
+            "program_end_date": "2024-07-25",
+            "photo_url": "https://example.com/photos/jane_smith.jpg"
+        },
+        {
+            "first_name": "Michael",
+            "last_name": "Johnson",
+            "email": "michael.johnson@example.com",
+            "phone_number": "+2348234567890",
+            "course_name": "UI/UX Design",
+            "year_of_study": "2025",
+            "program_start_date": "2025-01-05",
+            "program_end_date": "2025-06-20",
+            "photo_url": ""
+        },
+        {
+            "first_name": "Sarah",
+            "last_name": "Williams",
+            "email": "sarah.williams@example.com",
+            "phone_number": "+2348345678901",
+            "course_name": "Cybersecurity",
+            "year_of_study": "2024",
+            "program_start_date": "2024-03-01",
+            "program_end_date": "2024-08-15",
+            "photo_url": "https://example.com/photos/sarah_w.jpg"
+        }
+    ]
+    
+    # Create filename with timestamp for uniqueness
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d")
+    filename = f"student_import_template_{timestamp}.{file_format}"
+    
+    if file_format == 'csv':
+        # Create CSV
+        output = StringIO()
+        if sample_data:
+            # Get fieldnames from the first row
+            fieldnames = sample_data[0].keys()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(sample_data)
+        
+        # Create response
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'text/csv; charset=utf-8'
+            }
+        )
+        return response
+        
+    elif file_format in ['xlsx', 'excel']:
+        try:
+            # Create Excel file
+            import pandas as pd
+            from io import BytesIO
+            
+            df = pd.DataFrame(sample_data)
+            output = BytesIO()
+            
+            # Create Excel file with pandas
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Students', index=False)
+                
+                # Add instructions sheet
+                instructions_data = {
+                    'Field': [
+                        'first_name', 
+                        'last_name', 
+                        'email', 
+                        'phone_number', 
+                        'course_name', 
+                        'year_of_study',
+                        'program_start_date',
+                        'program_end_date',
+                        'photo_url'
+                    ],
+                    'Description': [
+                        'Student\'s first name (required)',
+                        'Student\'s last name (required)',
+                        'Student\'s email address (required, must be unique)',
+                        'Student\'s phone number (optional)',
+                        'Course or program name (required)',
+                        'Year of study (optional)',
+                        'Program start date (YYYY-MM-DD format, optional)',
+                        'Program end date (YYYY-MM-DD format, optional)',
+                        'URL to student photo (optional)'
+                    ],
+                    'Example': [
+                        'John',
+                        'Doe',
+                        'john.doe@example.com',
+                        '+2348012345678',
+                        'Web Development',
+                        '2024',
+                        '2024-01-15',
+                        '2024-06-30',
+                        'https://example.com/photo.jpg'
+                    ]
+                }
+                instructions_df = pd.DataFrame(instructions_data)
+                instructions_df.to_excel(writer, sheet_name='Instructions', index=False)
+                
+                # Auto-adjust column widths for Students sheet
+                worksheet = writer.sheets['Students']
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+                
+                # Auto-adjust column widths for Instructions sheet
+                worksheet_instructions = writer.sheets['Instructions']
+                for column in worksheet_instructions.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 60)
+                    worksheet_instructions.column_dimensions[column_letter].width = adjusted_width
+            
+            output.seek(0)
+            
+            # Create response
+            response = Response(
+                output.read(),
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                headers={
+                    'Content-Disposition': f'attachment; filename={filename}',
+                    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                }
+            )
+            return response
+            
+        except ImportError:
+            # Fallback to CSV if pandas/openpyxl not available
+            return jsonify({"error": "Excel export requires pandas and openpyxl. Please install them or use CSV format."}), 500
+    
+    else:
+        return jsonify({"error": "Unsupported file format. Use 'csv' or 'xlsx'"}), 400
+    

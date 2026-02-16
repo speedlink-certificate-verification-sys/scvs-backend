@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from ..controllers.certificate_controller import create_certificate, list_certificates, update_certificate, delete_certificate, import_certificates_csv
+from ..controllers.certificate_controller import create_certificate, list_certificates, update_certificate, delete_certificate, import_certificates_csv, download_sample_certificate_file
 from flasgger import swag_from
 
 
@@ -151,3 +151,35 @@ def delete_cert(code):
 })
 def import_csv():
     return import_certificates_csv()
+
+
+# Add this to your certificate routes file (where the other certificate routes are)
+
+@certificate_bp.get('/download-sample')
+@swag_from({
+    "tags": ["Certificates"],
+    "summary": "Download sample certificate import file",
+    "description": "Downloads a sample CSV or Excel template for certificate import",
+    "parameters": [
+        {
+            "in": "query", 
+            "name": "format", 
+            "type": "string", 
+            "enum": ["csv", "xlsx"],
+            "default": "csv",
+            "description": "File format (csv or xlsx)"
+        }
+    ],
+    "responses": {
+        "200": {
+            "description": "Sample file downloaded successfully",
+            "content": {
+                "text/csv": {"schema": {"type": "string", "format": "binary"}},
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {"schema": {"type": "string", "format": "binary"}}
+            }
+        },
+        "400": {"description": "Unsupported file format"}
+    }
+})
+def download_sample_cert():
+    return download_sample_certificate_file()
